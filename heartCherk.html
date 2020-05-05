@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="dashboard"></div>
+    <script>
+      // 1. 连接 WebSocket 服务器，由于在本地的 8080 端口，所以地址是 localhost：8080，协议是 ws；第二个参数是服务器和前端约定的协议
+      function createWebSocket(url) {
+        try {
+          let ws = new WebSocket(url);
+          ws.onopen = function() {
+            console.log("初始化 websocket opening");
+            heartCheck.start();
+          };
+          ws.onmessage = function() {
+            console.log("收到服务器响应");
+            heartCheck.start();
+          };
+          ws.onclose = function() {
+            console.log("初始化关闭重连中");
+            reconnect("wss://echo.websocket.org");
+          };
+          ws.onerror = function() {
+            console.log("初始化出错重连中");
+            reconnect("wss://echo.websocket.org");
+          };
+
+          var heartCheck = {
+            timeout: 3000,
+            // num: 3,
+            serverTimeout: 3000,
+            timeoutObj: null,
+            serverTimeoutObj: null,
+            // reset: function() {
+            //   clearTimeout(this.timeoutObj);
+            //   clearTimeout(this.serverTimeoutObj);
+            //   this.start();
+            // },
+            start: function() {
+              var self = this;
+              this.timeoutObj && clearTimeout(this.timeoutObj);
+              this.serverTimeoutObj && clearTimeout(this.serverTimeoutObj);
+              this.timeoutObj = setTimeout(() => {
+                ws.send("HeartBeat");
+                console.log("---心跳send中---");
+                // self.num--;
+                self.serverTimeoutObj = setTimeout(() => {
+                  // if (self.num === 0) {
+                  console.log("---未响应 ws关闭中---");
+                  ws.close();
+                  // }
+                }, self.serverTimeout);
+              }, this.timeout);
+            }
+          };
+          // init(url);
+        } catch (e) {
+          reconnect(url);
+        }
+      }
+
+      createWebSocket("wss://echo.websocket.org");
+
+      var lockReconnect = false;
+      function reconnect(url) {
+        if (lockReconnect) {
+          return;
+        }
+        lockReconnect = true;
+        // 没连上会一直重连，设置延迟避免请求过多
+        tt && clearTimeout(tt);
+        var tt = setTimeout(function() {
+          console.log("重连进行中");
+          createWebSocket(url);
+          lockReconnect = false;
+        }, 4000);
+      }
+    </script>
+  </body>
+</html>
